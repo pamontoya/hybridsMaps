@@ -1,0 +1,36 @@
+# Function to create hybrids maps using species distribution model, expert maps (polygons) and georeferenced records. 
+# Function under construction. Please use with caution!
+
+### Arguments
+### model: raster object | distribution model
+### shape: SpatialPolygons object | distribution expert map
+### coord: data frame | data frame containing the coordinates for the species
+### xy: numeric vector | columns' position for x and y coordinates in 'coord'. Always in the order x - y
+### bufferPoints: logical | indicates whether a buffer should be aplicated to the coordinates
+### bufferSize: numeric vector | buffer size. The units are the pixel size in the distribution model
+
+### Return
+### raster layer object
+
+hybri2 <- function(model, shape, coord, xy, bufferSize = 10, bufferPoints=TRUE)
+{
+  require(raster)
+  require(rgeos)
+  require(maptools)
+	if(class(model)!="RasterLayer") {stop("Error: model must be a raster layer object")}
+	sh <- rasterize(shape,model,1)
+	coordenadas <- coordinates(sh)[!is.na(values(sh)),]
+	groups <- clump(model,directions=8)
+	values_groups <- unique(values(groups))
+	vShape <- unique(extract(groups,coordenadas))
+	points <- rasterize(coord[,xy],model,1)
+	if(bufferPoints==TRUE) 
+		{ buffPoints <- disaggregate(aggregate(points,bufferSize),bufferSize) }
+	else( buffPoints <- points)	
+	vPoints<- unique(groups[buffPoints==1])
+	vShP <- sort(unique(c(vShape,vPoints)))
+	vN <- data.frame(cbind(vShP,na = 1))
+	rHib <- subs(groups, vN, by=1, which=2, subsWithNA=T)
+	rHib[rHib >= 1] <- 1
+	return(rHib)
+}
